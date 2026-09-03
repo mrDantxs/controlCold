@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  coldchain-app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: coldchain-monitor
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - TUYA_ENDPOINT=${TUYA_ENDPOINT:-https://openapi.tuyaus.com}
+      - TUYA_ACCESS_ID=${TUYA_ACCESS_ID}
+      - TUYA_ACCESS_SECRET=${TUYA_ACCESS_SECRET}
+      - FREEZER_CONGELADOS_MIN=${FREEZER_CONGELADOS_MIN:--22}
+      - FREEZER_CONGELADOS_MAX=${FREEZER_CONGELADOS_MAX:--15}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - DATABASE_URL=sqlite+aiosqlite:////data/coldchain.db
+    volumes:
+      - ./data:/data
+      - ./frontend:/frontend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/overview"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

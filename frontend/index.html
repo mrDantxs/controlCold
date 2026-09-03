@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="ControlCold - Sistema de Monitoramento Térmico e Prevenção de Perdas IoT">
+    <meta name="theme-color" content="#0b1120">
+    <title>❄️ ControlCold | Portal de Monitoramento IoT</title>
+
+    <!-- PWA Manifest & Meta -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ControlCold">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js via CDN com fallback nativo -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Folha de Estilos Principal -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+    <!-- =========================================================
+         TELA 1: PORTAL DE ACESSO EXCLUSIVO (LOGIN / CRIAÇÃO DE CONTA)
+         Exibida para usuários não autenticados (Zero Vazamento de Dados)
+         ========================================================= -->
+    <div id="authPortalScreen" class="auth-portal-screen">
+        <div class="auth-container">
+            <!-- Brand Central do Portal -->
+            <div class="auth-brand-center">
+                <div class="logo-frost-lg">
+                    <span>❄️</span>
+                </div>
+                <h1 class="portal-title">ControlCold <span>IoT</span></h1>
+                <p class="portal-subtitle">Área Restrita • Telemetria e Prevenção de Perdas</p>
+            </div>
+
+            <!-- Card de Autenticação -->
+            <div class="auth-box">
+                <!-- 1. Tela de Login -->
+                <div id="authViewLogin" class="auth-view">
+                    <div class="auth-header-text">
+                        <h2>Acessar o Sistema</h2>
+                        <p>Informe suas credenciais para visualizar as câmaras e freezers.</p>
+                    </div>
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label for="loginEmail">E-mail</label>
+                            <input type="email" id="loginEmail" placeholder="ex: willian.dantas@admin.com" required autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Senha</label>
+                            <input type="password" id="loginPassword" placeholder="Sua senha de acesso" required autocomplete="current-password">
+                        </div>
+                        <div class="auth-actions-row">
+                            <button type="button" class="btn-link" id="toForgotBtn">Esqueci minha senha</button>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" id="loginSubmitBtn">Entrar no Sistema</button>
+                        <div class="auth-divider"><span>ou</span></div>
+                        <button type="button" class="btn btn-outline btn-block" id="toRegisterBtn">Criar Nova Conta</button>
+                    </form>
+                </div>
+
+                <!-- 2. Tela de Criação de Conta -->
+                <div id="authViewRegister" class="auth-view hidden">
+                    <div class="auth-header-text">
+                        <h2>Criar Nova Conta</h2>
+                        <p>Cadastre-se para receber seu código de verificação em 2 etapas.</p>
+                    </div>
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <label for="regEmail">E-mail Corporativo *</label>
+                            <input type="email" id="regEmail" placeholder="seu@email.com" required autocomplete="email">
+                        </div>
+                        <div class="form-group">
+                            <label for="regPhone">Telefone / WhatsApp (Opcional)</label>
+                            <input type="tel" id="regPhone" placeholder="(11) 98765-4321">
+                        </div>
+                        <div class="form-group">
+                            <label for="regPassword">Senha de Acesso *</label>
+                            <input type="password" id="regPassword" placeholder="Mínimo 6 caracteres" required autocomplete="new-password">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" id="registerSubmitBtn">Cadastrar & Receber Código</button>
+                        <div class="auth-actions-row center">
+                            <button type="button" class="btn-link" id="backToLoginBtn">Já possui conta? Fazer Login</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 3. Tela de Verificação com Código de 6 Dígitos -->
+                <div id="authViewVerify" class="auth-view hidden">
+                    <div class="auth-header-text">
+                        <h2>Confirmar Código</h2>
+                        <p>Enviamos um código de 6 dígitos para: <br><strong id="verifyTargetEmail" style="color: var(--color-frost-cyan)">--</strong></p>
+                    </div>
+                    <form id="verifyForm">
+                        <div class="form-group">
+                            <label for="inputVerifyCode" class="text-center">Código de 6 Dígitos</label>
+                            <input type="text" id="inputVerifyCode" maxlength="6" class="input-verification-code" placeholder="000000" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" id="verifySubmitBtn">Confirmar & Ativar Conta</button>
+                        <div class="auth-actions-row center">
+                            <button type="button" class="btn-link" id="resendCodeBtn">Reenviar Código</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 4. Tela de Esqueci Minha Senha -->
+                <div id="authViewForgot" class="auth-view hidden">
+                    <div class="auth-header-text">
+                        <h2>Recuperar Senha</h2>
+                        <p>Informe seu e-mail cadastrado para receber o código de segurança.</p>
+                    </div>
+                    <form id="forgotForm">
+                        <div class="form-group">
+                            <label for="forgotEmail">E-mail Cadastrado</label>
+                            <input type="email" id="forgotEmail" placeholder="seu@email.com" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" id="forgotSubmitBtn">Enviar Código de Recuperação</button>
+                        <div class="auth-actions-row center">
+                            <button type="button" class="btn-link" id="forgotBackToLoginBtn">Voltar ao Login</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 5. Tela de Redefinição de Senha -->
+                <div id="authViewReset" class="auth-view hidden">
+                    <div class="auth-header-text">
+                        <h2>Redefinir Senha</h2>
+                        <p>Digite o código de 6 dígitos e defina sua nova senha de acesso.</p>
+                    </div>
+                    <form id="resetForm">
+                        <div class="form-group">
+                            <label for="resetCode">Código de 6 Dígitos</label>
+                            <input type="text" id="resetCode" maxlength="6" class="input-verification-code" placeholder="000000" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="resetNewPassword">Nova Senha</label>
+                            <input type="password" id="resetNewPassword" placeholder="Sua nova senha" required autocomplete="new-password">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" id="resetSubmitBtn">Salvar Nova Senha</button>
+                    </form>
+                </div>
+            </div>
+
+            <p class="auth-footer-notice">
+                🔒 Conexão Criptografada • Proteção de Dados de Cadeia de Frio
+            </p>
+        </div>
+    </div>
+
+    <!-- =========================================================
+         TELA 2: PAINEL DE MONITORAMENTO DE SENSORES E FREEZERS
+         Exibida EXCLUSIVAMENTE após o Login Autenticado
+         ========================================================= -->
+    <div id="dashboardScreen" class="app-wrapper hidden">
+        <!-- Top Navbar -->
+        <header class="top-nav">
+            <div class="brand">
+                <div class="logo-frost">
+                    <span class="frost-icon">❄️</span>
+                </div>
+                <div class="brand-text">
+                    <h1 class="brand-title">ControlCold <span>IoT</span></h1>
+                    <p class="brand-subtitle">Monitoramento de Freezers Ekaza / Tuya</p>
+                </div>
+            </div>
+
+            <!-- Live Status & User Session -->
+            <div class="nav-controls">
+                <div class="live-pill" id="liveStatusBadge" title="Status da conexão em tempo real">
+                    <span class="pulse-dot"></span>
+                    <span id="liveStatusText">AO VIVO</span>
+                </div>
+
+                <div class="user-badge">
+                    <span class="user-avatar">👤</span>
+                    <span id="navUserEmail" class="nav-user-email">admin</span>
+                    <button id="logoutBtn" class="btn-logout" title="Encerrar sessão com segurança">Sair</button>
+                </div>
+
+                <button id="soundToggleBtn" class="icon-btn" title="Alternar som de alarme" aria-label="Som de alarme">
+                    <span id="soundIcon">🔔</span>
+                </button>
+
+                <button id="themeToggleBtn" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Tema">
+                    <span id="themeIcon">🌙</span>
+                </button>
+
+                <button id="systemInfoBtn" class="btn btn-outline" title="Informações do Sistema e Integrações">
+                    ⚙️ <span class="desktop-only">Sistema</span>
+                </button>
+                <button id="reportBtn" class="btn btn-outline" title="Baixar Relatório de Conformidade (PDF)">
+                    🖨️ <span class="desktop-only">Relatório PDF</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Summary KPIs -->
+        <section class="kpi-banner">
+            <div class="kpi-card" id="kpiTotal">
+                <span class="kpi-label">Freezers Ativos</span>
+                <div class="kpi-value" id="valTotalDevices">--</div>
+                <span class="kpi-sub" id="valSystemMode">Modo: Carregando</span>
+            </div>
+
+            <div class="kpi-card kpi-normal" id="kpiNormal">
+                <span class="kpi-label">Faixa Segura</span>
+                <div class="kpi-value" id="valNormalDevices">--</div>
+                <span class="kpi-sub">Temperatura Ideal</span>
+            </div>
+
+            <div class="kpi-card kpi-alert" id="kpiAlert">
+                <span class="kpi-label">Em Alerta</span>
+                <div class="kpi-value" id="valAlertDevices">--</div>
+                <span class="kpi-sub">Atenção Preventiva</span>
+            </div>
+
+            <div class="kpi-card kpi-critical" id="kpiCritical">
+                <span class="kpi-label">Críticos / Perigo</span>
+                <div class="kpi-value" id="valCriticalDevices">--</div>
+                <span class="kpi-sub">Ação Imediata</span>
+            </div>
+
+            <div class="kpi-card desktop-only" id="kpiAvg">
+                <span class="kpi-label">Média Geral</span>
+                <div class="kpi-value" id="valAvgTemp">-- °C</div>
+                <span class="kpi-sub">Rede de Câmaras</span>
+            </div>
+        </section>
+
+        <!-- Active Alarms Banner (Displayed when there is an active critical alarm) -->
+        <div id="activeAlarmsBanner" class="active-alarms-banner hidden">
+            <div class="alarm-banner-content">
+                <span class="alarm-pulse-icon">🚨</span>
+                <div class="alarm-banner-text">
+                    <strong id="alarmBannerTitle">ALERTA CRÍTICO DETECTADO!</strong>
+                    <span id="alarmBannerDesc">Temperatura ultrapassou limite de segurança.</span>
+                </div>
+            </div>
+            <button id="silenceAlarmBannerBtn" class="btn btn-alarm-ack">Reconhecer & Silenciar</button>
+        </div>
+
+        <!-- Filter Bar & Actions -->
+        <section class="filters-bar">
+            <div class="category-pills">
+                <button class="pill active" data-filter="all">Todos</button>
+                <button class="pill" data-filter="danger">🚨 Em Alerta</button>
+                <button class="pill" data-filter="congelados">🧊 Congelados</button>
+                <button class="pill" data-filter="carnes">🥩 Carnes</button>
+                <button class="pill" data-filter="resfriados">🥛 Resfriados</button>
+                <button class="pill" data-filter="vacinas">💉 Vacinas</button>
+            </div>
+
+            <div class="action-buttons">
+                <button id="addDeviceBtn" class="btn btn-primary">
+                    <span>+</span> Cadastrar Sensor
+                </button>
+                <button id="testSimulationBtn" class="btn btn-secondary" title="Dispara uma variação térmica simulada para teste">
+                    ⚡ Testar Alarme
+                </button>
+            </div>
+        </section>
+
+        <!-- Devices Grid (Dynamic Freezer Cards) -->
+        <main class="content-container">
+            <div id="devicesGrid" class="devices-grid">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Sincronizando sensores e telemetria segura...</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Timeline / Recent Alarms Panel -->
+        <section class="bottom-panel">
+            <div class="panel-header">
+                <h3>📋 Registro de Ocorrências e Alarmes Recentes</h3>
+                <span class="badge" id="alarmCountBadge">0 Registros</span>
+            </div>
+            <div class="alarms-table-container">
+                <table class="alarms-table">
+                    <thead>
+                        <tr>
+                            <th>Horário</th>
+                            <th>Freezer</th>
+                            <th>Severidade</th>
+                            <th>Medição / Limite</th>
+                            <th>Mensagem</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alarmsTableBody">
+                        <tr>
+                            <td colspan="6" class="text-muted text-center">Nenhuma violação registrada até o momento. Todos os freezers operando em conformidade.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>ControlCold • IoT Telemetry & Loss Prevention System • Tuya / Ekaza Architecture</p>
+        </footer>
+    </div>
+
+    <!-- Modal: Detalhes do Freezer e Gráfico Histórico -->
+    <div id="chartModal" class="modal-backdrop hidden">
+        <div class="modal-card modal-lg">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modalDeviceTitle">Histórico Térmico</h3>
+                    <p id="modalDeviceSubtitle" class="text-muted">Sensor ID: --</p>
+                </div>
+                <button class="close-modal-btn" id="closeChartModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="chart-stats-row">
+                    <div class="stat-mini">
+                        <span class="stat-label">Temp Atual</span>
+                        <span class="stat-val highlight" id="modalCurrentTemp">-- °C</span>
+                    </div>
+                    <div class="stat-mini">
+                        <span class="stat-label">Faixa Permitida</span>
+                        <span class="stat-val" id="modalTempLimits">-- a -- °C</span>
+                    </div>
+                    <div class="stat-mini">
+                        <span class="stat-label">Umidade Relativa</span>
+                        <span class="stat-val" id="modalHumidity">-- %</span>
+                    </div>
+                    <div class="stat-mini">
+                        <span class="stat-label">Bateria</span>
+                        <span class="stat-val" id="modalBattery">-- %</span>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="telemetryChart"></canvas>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="editLimitsFromChartBtn">⚙️ Ajustar Limites</button>
+                <button class="btn btn-outline" id="closeChartModalFooterBtn">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Cadastro / Edição de Freezer -->
+    <div id="deviceModal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="deviceModalTitle">Cadastrar Sensor / Freezer</h3>
+                <button class="close-modal-btn" id="closeDeviceModalBtn">&times;</button>
+            </div>
+            <form id="deviceForm" class="modal-body">
+                <input type="hidden" id="editDeviceId" value="">
+                
+                <div class="form-group">
+                    <label for="inputDeviceId">ID do Dispositivo Tuya *</label>
+                    <input type="text" id="inputDeviceId" placeholder="Ex: FRZ-05-PEIXES ou eb5a4843..." required>
+                    <small>Device ID obtido no aplicativo Ekaza/Tuya Smart ou Tuya IoT Platform.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="inputDeviceName">Nome do Equipamento *</label>
+                    <input type="text" id="inputDeviceName" placeholder="Ex: Freezer 05 - Pescados" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inputCategory">Categoria</label>
+                        <input type="text" id="inputCategory" list="categoryOptions" placeholder="Selecione ou digite nova...">
+                        <datalist id="categoryOptions">
+                            <option value="congelados">Congelados (-24°C a -16°C)</option>
+                            <option value="carnes">Carnes (-22°C a -15°C)</option>
+                            <option value="resfriados">Resfriados (+1°C a +6°C)</option>
+                            <option value="vacinas">Vacinas (+2°C a +8°C)</option>
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="inputLocation">Localização / Setor</label>
+                        <input type="text" id="inputLocation" placeholder="Ex: Salão A / Corredor 3">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inputTempMin">Limite Mínimo (°C) *</label>
+                        <input type="number" step="0.5" id="inputTempMin" value="-22.0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="inputTempMax">Limite Máximo (°C) *</label>
+                        <input type="number" step="0.5" id="inputTempMax" value="-15.0" required>
+                    </div>
+                </div>
+
+                <div class="form-divider"><span>Calibração Metrológica (Setor Farmacêutico)</span></div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inputCalibrationCert">Nº Certificado INMETRO / Link</label>
+                        <input type="text" id="inputCalibrationCert" placeholder="Ex: Cert 123456 ou URL...">
+                    </div>
+                    <div class="form-group">
+                        <label for="inputTempOffset">Offset Corretivo (°C)</label>
+                        <input type="number" step="0.1" id="inputTempOffset" value="0.0" placeholder="Ex: -0.5">
+                    </div>
+                </div>
+
+                <div class="form-divider"><span>Opcional: Conexão Local TinyTuya (LAN Direta)</span></div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inputLocalIp">IP Local (Rede Interna)</label>
+                        <input type="text" id="inputLocalIp" placeholder="Ex: 192.168.1.150">
+                    </div>
+                    <div class="form-group">
+                        <label for="inputLocalKey">Chave Local (Local Key)</label>
+                        <input type="text" id="inputLocalKey" placeholder="Chave 16 caracteres">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelDeviceModalBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="saveDeviceBtn">Salvar Freezer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Informações do Sistema e Testes -->
+    <div id="systemModal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>⚙️ Configurações & Status do Sistema</h3>
+                <button class="close-modal-btn" id="closeSystemModalBtn">&times;</button>
+            </div>
+            <div class="modal-body system-details">
+                <div class="system-status-item">
+                    <strong>Modo Operacional:</strong>
+                    <span id="sysStatusMode" class="badge">Identificando...</span>
+                </div>
+                <div class="system-status-item">
+                    <strong>Integração Tuya Cloud:</strong>
+                    <span id="sysStatusTuya" class="badge">--</span>
+                </div>
+                <div class="system-status-item">
+                    <strong>Bot do Telegram:</strong>
+                    <span id="sysStatusTelegram" class="badge">--</span>
+                </div>
+                
+                <div class="system-box">
+                    <h4>🧪 Teste de Alerta no Telegram</h4>
+                    <p class="text-sm">Envie um teste imediato para confirmar se as notificações estão chegando ao seu smartphone.</p>
+                    <div class="telegram-test-row">
+                        <input type="text" id="testChatId" placeholder="Chat ID opcional (ou padrão do .env)">
+                        <button id="sendTelegramTestBtn" class="btn btn-secondary">Disparar Teste</button>
+                    </div>
+                    <div id="telegramTestResult" class="text-sm mt-2"></div>
+                </div>
+
+                <div class="system-box">
+                    <h4>🔗 Integração Ekaza / Smart Life</h4>
+                    <p class="text-sm">Vincule seu aplicativo para importar automaticamente todos os seus sensores de temperatura para o painel.</p>
+                    <div class="telegram-test-row" style="margin-top: 10px;">
+                        <button id="linkEkazaBtn" class="btn btn-primary" style="flex: 1;">Vincular Conta Ekaza</button>
+                        <button id="syncEkazaBtn" class="btn btn-secondary" style="flex: 1;">Sincronizar Dispositivos</button>
+                    </div>
+                </div>
+
+                <div class="system-box">
+                    <h4>💡 Informações de Hardware Ekaza/Tuya</h4>
+                    <p class="text-sm text-muted">
+                        Para o monitoramento de freezers, utilize a sonda externa à prova d'água dentro da câmara e o corpo transmissor fora do freezer para garantir alcance de sinal Wi-Fi/Zigbee e preservar a vida útil das pilhas.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="closeSystemModalFooterBtn">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Reconhecer Alarme (Auditoria) -->
+    <div id="auditModal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>⚠️ Reconhecer Alarme</h3>
+                <button class="close-modal-btn" id="closeAuditModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>O sistema exige um motivo para silenciar este alarme e registrar na auditoria.</p>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label for="auditReason">Motivo do silenciamento *</label>
+                    <select id="auditReason" style="margin-bottom: 10px;">
+                        <option value="Porta aberta acidentalmente">Porta aberta acidentalmente</option>
+                        <option value="Ciclo de degelo em andamento">Ciclo de degelo em andamento</option>
+                        <option value="Abastecimento de produtos">Abastecimento de produtos</option>
+                        <option value="Manutenção técnica">Manutenção técnica</option>
+                        <option value="Outro">Outro (especificar abaixo)</option>
+                    </select>
+                    <input type="text" id="auditCustomReason" placeholder="Se outro, especifique o motivo..." style="display:none;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelAuditBtn">Cancelar</button>
+                <button class="btn btn-primary" id="confirmAuditBtn">Confirmar e Silenciar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts da Aplicação -->
+    <script src="/static/js/socket.js"></script>
+    <script src="/static/js/charts.js"></script>
+    <script src="/static/js/app.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registrado:', reg.scope))
+            .catch(err => console.error('Erro no Service Worker:', err));
+        });
+      }
+    </script>
+</body>
+</html>

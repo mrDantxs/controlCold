@@ -1,0 +1,22 @@
+# API / Backend
+backend/venv/
+backend/__pycache__/
+*.pyc
+*.pyo
+
+# Banco de Dados (NÃO ENVIAR PARA O GITHUB)
+backend/*.db
+backend/*.db-wal
+backend/*.db-shm
+
+# Segredos (SENHAS, TOKENS API, CHAVES)
+.env
+.env.local
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
