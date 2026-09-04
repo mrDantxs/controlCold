@@ -15,8 +15,13 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 logger = logging.getLogger("controlcold.security")
 
-# Chave secreta para assinatura dos tokens de autenticação
-SECRET_KEY = os.getenv("APP_SECRET_KEY", "controlcold-super-secure-key-2026-iot-coldchain")
+# Chave secreta para assinatura dos tokens de autenticação (obrigatória em produção)
+SECRET_KEY = os.getenv("APP_SECRET_KEY")
+if not SECRET_KEY and os.getenv("ENV") == "production":
+    raise RuntimeError("A variável de ambiente APP_SECRET_KEY é obrigatória em produção para garantir a segurança dos tokens JWT.")
+elif not SECRET_KEY:
+    # Apenas para desenvolvimento local caso o .env falhe
+    SECRET_KEY = "controlcold-dev-insecure-key-do-not-use-in-prod"
 
 def hash_password(password: str) -> str:
     """Gera hash PBKDF2-HMAC-SHA256 com salt aleatório"""

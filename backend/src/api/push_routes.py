@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ..database.db import get_db
 from ..database.models import User, PushSubscription
@@ -12,10 +12,12 @@ router = APIRouter()
 
 # DTO para a subscription Web Push (Keys: p256dh, auth)
 class PushKeys(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     p256dh: str
     auth: str
 
 class PushSubscriptionDTO(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     endpoint: str
     keys: PushKeys
 

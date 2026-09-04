@@ -1,15 +1,15 @@
 import datetime
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Header
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
+from pydantic import BaseModel, EmailStr, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 logger = logging.getLogger("controlcold.auth")
 
 from ..database.db import get_db
-from ..database.models import User, RefreshToken
+from ..database.models import User, RefreshToken, get_blind_index
 from ..security.auth import (
     hash_password,
     verify_password,
@@ -19,40 +19,50 @@ from ..security.auth import (
     send_email_verification,
     generate_refresh_token_string
 )
+from ..security.rate_limit import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["Autenticação"])
 
 # Modelos Pydantic para requisições
 class RegisterRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     email: str
     password: str
     phone: Optional[str] = None
 
 class VerifyRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     email: str
     code: str
 
 class RefreshTokenRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     refresh_token: str
 
 class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     email: str
     password: str
 
 class ForgotPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     email: str
 
 class ResetPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     email: str
     code: str
     new_password: str
 
-async def get_current_user(authorization: Optional[str] = Header(None), db: AsyncSession = Depends(get_db)) -> User:
-    """Dependency para obter o usuário logado via Bearer Token"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Autenticação requerida")
+async def get_current_user(request: Request, authorization: Optional[str] = Header(None), db: AsyncSession = Depends(get_db)) -> User:
+    """Dependency para obter o usuário logado via Cookie HttpOnly ou Bearer Token"""
+    token = request.cookies.get("access_token")
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+        
+    if not token:
+        raise HTTPException(status_code=401, detail="Autenticação requerida (Cookie ou Header ausentes)")
     
-    token = authorization.split(" ")[1]
     payload = decode_auth_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Sessão expirada ou token inválido")
@@ -63,12 +73,14 @@ async def get_current_user(authorization: Optional[str] = Header(None), db: Asyn
     return user
 
 @router.post("/register")
-async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, payload: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """Cadastro de nova conta com envio de código de 6 dígitos para confirmação"""
     email_clean = payload.email.strip().lower()
+    blind_index = get_blind_index(email_clean)
     
     # Verifica se usuário já existe
-    existing = await db.execute(select(User).where(User.email == email_clean))
+    existing = await db.execute(select(User).where(User.email == blind_index))
     user = existing.scalar_one_or_none()
     
     code = generate_verification_code()
@@ -85,7 +97,7 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
         user.code_expires_at = expires_at
     else:
         user = User(
-            email=email_clean,
+            raw_email=email_clean,
             phone=payload.phone,
             password_hash=pwd_hash,
             is_verified=False,
@@ -112,10 +124,12 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     }
 
 @router.post("/verify")
-async def verify_code(payload: VerifyRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def verify_code(request: Request, response: Response, payload: VerifyRequest, db: AsyncSession = Depends(get_db)):
     """Valida o código de 6 dígitos e ativa a conta"""
     email_clean = payload.email.strip().lower()
-    result = await db.execute(select(User).where(User.email == email_clean))
+    blind_index = get_blind_index(email_clean)
+    result = await db.execute(select(User).where(User.email == blind_index))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -143,16 +157,25 @@ async def verify_code(payload: VerifyRequest, db: AsyncSession = Depends(get_db)
     db.add(refresh_record)
     await db.commit()
 
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=True, 
+        samesite="lax",
+        max_age=900
+    )
+
     return {
         "success": True,
         "message": "Conta verificada e ativada com sucesso!",
-        "token": token,
         "refresh_token": refresh_token_str,
         "user": user.to_dict()
     }
 
 @router.post("/login")
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, response: Response, payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Autentica usuário e retorna JWT se a conta já estiver verificada"""
     email_clean = payload.email.strip().lower()
     result = await db.execute(select(User).where(User.email == email_clean))
@@ -178,7 +201,7 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
             "email": email_clean
         }
 
-    token = create_auth_token(user.id, user.email, user.role)
+    token = create_auth_token(user.id, user.raw_email, user.role)
     refresh_token_str = generate_refresh_token_string()
     refresh_record = RefreshToken(
         token=refresh_token_str,
@@ -188,9 +211,17 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     db.add(refresh_record)
     await db.commit()
 
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=True, 
+        samesite="lax",
+        max_age=900
+    )
+
     return {
         "success": True,
-        "token": token,
         "refresh_token": refresh_token_str,
         "user": user.to_dict()
     }
@@ -199,7 +230,8 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Gera código de 6 dígitos para redefinição de senha"""
     email_clean = payload.email.strip().lower()
-    result = await db.execute(select(User).where(User.email == email_clean))
+    blind_index = get_blind_index(email_clean)
+    result = await db.execute(select(User).where(User.email == blind_index))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -229,7 +261,8 @@ async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Dep
 async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Redefine a senha após validação do código de 6 dígitos"""
     email_clean = payload.email.strip().lower()
-    result = await db.execute(select(User).where(User.email == email_clean))
+    blind_index = get_blind_index(email_clean)
+    result = await db.execute(select(User).where(User.email == blind_index))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -269,7 +302,7 @@ async def refresh_access_token(payload: RefreshTokenRequest, db: AsyncSession = 
     if not user or not user.is_verified:
         raise HTTPException(status_code=401, detail="Usuário inválido ou não verificado.")
 
-    new_access_token = create_auth_token(user.id, user.email, user.role)
+    new_access_token = create_auth_token(user.id, user.raw_email, user.role)
     return {
         "success": True,
         "token": new_access_token

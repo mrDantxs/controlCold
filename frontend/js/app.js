@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
         soundEnabled: true,
         isDarkTheme: true,
         currentUser: null,
-        authToken: localStorage.getItem('controlcold_token') || null,
         refreshToken: localStorage.getItem('controlcold_refresh') || null,
         pendingEmailForVerify: '',
         lastDevCode: '',
@@ -165,9 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Utilitário para chamadas autenticadas
     async function secureFetch(url, options = {}) {
         options.headers = options.headers || {};
-        if (state.authToken) {
-            options.headers['Authorization'] = `Bearer ${state.authToken}`;
-        }
+        options.credentials = 'include'; // Permite envio de Cookies HttpOnly
         let res = await fetch(url, options);
         if (res.status === 401) {
             if (state.refreshToken && !options._retry) {
@@ -180,9 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     if (refreshRes.ok) {
                         const refreshData = await refreshRes.json();
-                        state.authToken = refreshData.token;
-                        localStorage.setItem('controlcold_token', state.authToken);
-                        options.headers['Authorization'] = `Bearer ${state.authToken}`;
                         return await fetch(url, options);
                     }
                 } catch(e) {
@@ -252,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentUser = null;
         state.authToken = null;
         state.refreshToken = null;
-        localStorage.removeItem('controlcold_token');
         localStorage.removeItem('controlcold_refresh');
         showAuthPortal();
     }
@@ -293,8 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Login bem-sucedido
             state.currentUser = data.user;
-            state.authToken = data.token;
-            localStorage.setItem('controlcold_token', data.token);
             if (data.refresh_token) {
                 state.refreshToken = data.refresh_token;
                 localStorage.setItem('controlcold_refresh', data.refresh_token);
@@ -378,8 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Sucesso! A conta agora está verificada
             state.currentUser = data.user;
-            state.authToken = data.token;
-            localStorage.setItem('controlcold_token', data.token);
             if (data.refresh_token) {
                 state.refreshToken = data.refresh_token;
                 localStorage.setItem('controlcold_refresh', data.refresh_token);
@@ -489,20 +478,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------
     async function initSession() {
         if (!state.authToken) {
-            showAuthPortal(false);
-            return;
-        }
-
         try {
-            const res = await fetch('/api/auth/me', {
-                headers: { 'Authorization': `Bearer ${state.authToken}` }
+            const res = await secureFetch('/api/auth/me', {
+                method: 'GET'
             });
             if (res.ok) {
                 state.currentUser = await res.json();
                 showDashboard();
             } else {
-                state.authToken = null;
-                localStorage.removeItem('controlcold_token');
                 showAuthPortal(false);
             }
         } catch (e) {

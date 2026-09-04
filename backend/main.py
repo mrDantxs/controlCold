@@ -5,10 +5,13 @@ import logging
 from contextlib import asynccontextmanager
 from typing import List
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 from sqlalchemy import select, func
 
 from src.database.db import init_db, AsyncSessionLocal
@@ -23,6 +26,7 @@ from src.api.websocket import ws_manager
 from src.rules_engine.evaluator import RulesEngine
 from src.security.auth import hash_password
 from src.services.push_service import send_push_notification
+from src.security.rate_limit import limiter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -265,11 +269,30 @@ async def lifespan(app: FastAPI):
     collector_task.cancel()
 
 app = FastAPI(
-    title="ControlCold - Monitor de Freezers IoT",
-    description="Sistema centralizado para monitoramento térmico em tempo real integrado a sensores Tuya/Ekaza com autenticação e prevenção de perdas",
-    version="1.0.0",
+    title="ControlCold API",
+    description="API IoT para Monitoramento Térmico Farmacêutico e Gestão de Perdas (Hardened)",
+    version="2.0.0",
     lifespan=lifespan
 )
+
+# SlowAPI (Rate Limiting)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# OWASP Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*; img-src 'self' data: https://*;"
+    return response
+
+# Força HTTPS em Produção
+if os.getenv("ENV") == "production":
+    app.add_middleware(HTTPSRedirectMiddleware)
 
 # CORS liberado para permitir conexões de qualquer app mobile ou rede interna
 app.add_middleware(
