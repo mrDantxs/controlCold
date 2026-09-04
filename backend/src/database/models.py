@@ -1,6 +1,20 @@
 import datetime
+import hashlib
+import hmac
+import os
 from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import declarative_base, relationship
+from cryptography.fernet import Fernet
+
+# Chave de criptografia simétrica para PIIs
+ENCRYPTION_KEY = os.getenv("PII_ENCRYPTION_KEY", Fernet.generate_key().decode())
+fernet = Fernet(ENCRYPTION_KEY.encode())
+
+def get_blind_index(value: str) -> str:
+    """Gera um hash determinístico (Blind Index) para permitir buscas exatas no banco."""
+    if not value:
+        return value
+    return hmac.new(ENCRYPTION_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()
 
 Base = declarative_base()
 
@@ -8,8 +22,12 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    # email_hash armazena o Blind Index para buscas de login
     email = Column(String(120), unique=True, nullable=False, index=True)
-    phone = Column(String(30), nullable=True)
+    # email_encrypted armazena o dado real reversível
+    email_encrypted = Column(Text, nullable=True)
+    phone_encrypted = Column(Text, nullable=True)
+    
     password_hash = Column(String(256), nullable=False)
     is_verified = Column(Boolean, default=False)
     verification_code = Column(String(6), nullable=True)
@@ -17,13 +35,37 @@ class User(Base):
     role = Column(String(20), default="operator")  # admin, operator
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+    @property
+    def raw_email(self) -> str:
+        if not self.email_encrypted:
+            return ""
+        return fernet.decrypt(self.email_encrypted.encode()).decode()
+
+    @raw_email.setter
+    def raw_email(self, value: str):
+        if value:
+            self.email = get_blind_index(value.lower().strip())
+            self.email_encrypted = fernet.encrypt(value.lower().strip().encode()).decode()
+
+    @property
+    def phone(self) -> str:
+        if not self.phone_encrypted:
+            return ""
+        return fernet.decrypt(self.phone_encrypted.encode()).decode()
+
+    @phone.setter
+    def phone(self, value: str):
+        if value:
+            self.phone_encrypted = fernet.encrypt(value.encode()).decode()
+        else:
+            self.phone_encrypted = None
+
     push_subscriptions = relationship("PushSubscription", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
 
     def to_dict(self):
         return {
             "id": self.id,
-            "email": self.email,
-            "phone": self.phone,
+            "email_blind_index": self.email,  # Não expor o e-mail real no to_dict
             "is_verified": self.is_verified,
             "role": self.role,
             "created_at": self.created_at.isoformat() if self.created_at else None

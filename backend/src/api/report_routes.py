@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ..database.db import get_db
 from ..database.models import User, Device, AuditLog, TelemetryLog
@@ -23,6 +23,7 @@ except ImportError:
 router = APIRouter(prefix="/api", tags=["Reports & Audit"])
 
 class AuditLogCreate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     device_id: str
     action_type: str
     reason: str

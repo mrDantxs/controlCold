@@ -1,7 +1,7 @@
 import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
 
 # Schemas Pydantic
 class DeviceCreate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     id: str
     name: str
     category: Optional[str] = "congelados"
@@ -26,6 +27,7 @@ class DeviceCreate(BaseModel):
     local_key: Optional[str] = None
 
 class DeviceUpdate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     name: Optional[str] = None
     category: Optional[str] = None
     location: Optional[str] = None
@@ -36,10 +38,12 @@ class DeviceUpdate(BaseModel):
     local_key: Optional[str] = None
 
 class AnomalyRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     device_id: str
     anomaly_type: str = "DOOR_OPEN"  # DOOR_OPEN, DEFROST, SPIKE
 
 class TelegramTestRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     chat_id: Optional[str] = None
 
 # Instâncias compartilhadas
