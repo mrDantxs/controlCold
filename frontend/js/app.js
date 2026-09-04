@@ -477,7 +477,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicialização da Sessão
     // -------------------------------------------------------------
     async function initSession() {
-        if (!state.authToken) {
         try {
             const res = await secureFetch('/api/auth/me', {
                 method: 'GET'

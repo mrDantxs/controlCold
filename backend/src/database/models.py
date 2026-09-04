@@ -5,6 +5,9 @@ import os
 from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import declarative_base, relationship
 from cryptography.fernet import Fernet
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
 
 # Chave de criptografia simétrica para PIIs
 ENCRYPTION_KEY = os.getenv("PII_ENCRYPTION_KEY", Fernet.generate_key().decode())
