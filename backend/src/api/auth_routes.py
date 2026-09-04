@@ -178,7 +178,8 @@ async def verify_code(request: Request, response: Response, payload: VerifyReque
 async def login(request: Request, response: Response, payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Autentica usuário e retorna JWT se a conta já estiver verificada"""
     email_clean = payload.email.strip().lower()
-    result = await db.execute(select(User).where(User.email == email_clean))
+    blind_index = get_blind_index(email_clean)
+    result = await db.execute(select(User).where(User.email == blind_index))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(user.password_hash, payload.password):
