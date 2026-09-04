@@ -468,10 +468,9 @@
 
                 <div class="system-box">
                     <h4>🔗 Integração Ekaza / Smart Life</h4>
-                    <p class="text-sm">Vincule seu aplicativo para importar automaticamente todos os seus sensores de temperatura para o painel.</p>
+                    <p class="text-sm">Para importar seus sensores de temperatura, vincule o aplicativo Ekaza via QR Code no Portal Tuya Cloud e adicione-os manualmente informando o ID Virtual.</p>
                     <div class="telegram-test-row" style="margin-top: 10px;">
-                        <button id="linkEkazaBtn" class="btn btn-primary" style="flex: 1;">Vincular Conta Ekaza</button>
-                        <button id="syncEkazaBtn" class="btn btn-secondary" style="flex: 1;">Sincronizar Dispositivos</button>
+                        <button class="btn btn-secondary" onclick="alert('Por favor, leia o arquivo manual_integracao_tuya_ekaza.md no seu VSCode para ver o passo-a-passo detalhado com fotos!')" style="flex: 1;">Ler Manual de Integração</button>
                     </div>
                 </div>
 
@@ -519,7 +518,7 @@
     <!-- Scripts da Aplicação -->
     <script src="/static/js/socket.js"></script>
     <script src="/static/js/charts.js"></script>
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=2"></script>
     
     <!-- Service Worker Registration -->
     <script>

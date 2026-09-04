@@ -136,8 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         telegramTestResult: document.getElementById('telegramTestResult'),
         
         // Ekaza Integration
-        linkEkazaBtn: document.getElementById('linkEkazaBtn'),
-        syncEkazaBtn: document.getElementById('syncEkazaBtn'),
+
 
         // Auditoria & Relatórios
         reportBtn: document.getElementById('reportBtn'),
@@ -1093,50 +1092,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             btn.disabled = false;
             btn.textContent = 'Disparar Teste';
-        }
-    });
-
-    // Vinculação Ekaza (Tuya OAuth2)
-    dom.linkEkazaBtn.addEventListener('click', async () => {
-        try {
-            dom.linkEkazaBtn.disabled = true;
-            dom.linkEkazaBtn.textContent = 'Gerando link seguro...';
-            const res = await secureFetch('/api/integrations/tuya/auth-url');
-            const data = await res.json();
-            if (res.ok && data.success) {
-                // Abre a janela de login da Tuya em uma nova aba
-                window.open(data.auth_url, '_blank');
-                alert('Uma nova aba foi aberta para você fazer login no sistema da Tuya/Ekaza.\nApós autorizar, você pode fechar a nova aba e voltar para cá para sincronizar!');
-            } else {
-                alert('Erro ao gerar URL de vinculação: ' + (data.detail || 'Desconhecido'));
-            }
-        } catch (e) {
-            alert('Falha na comunicação com o servidor ao solicitar integração.');
-        } finally {
-            dom.linkEkazaBtn.disabled = false;
-            dom.linkEkazaBtn.textContent = 'Vincular Conta Ekaza';
-        }
-    });
-
-    dom.syncEkazaBtn.addEventListener('click', async () => {
-        try {
-            dom.syncEkazaBtn.disabled = true;
-            dom.syncEkazaBtn.textContent = 'Sincronizando sensores...';
-            const res = await secureFetch('/api/integrations/tuya/sync', { method: 'POST' });
-            const data = await res.json();
-            
-            if (res.ok && data.success) {
-                alert(data.message);
-                fetchDevices(true); // Recarrega os devices
-                closeModal(dom.systemModal);
-            } else {
-                alert(data.detail || data.message || 'Erro ao sincronizar dispositivos.');
-            }
-        } catch (e) {
-            alert('Falha ao comunicar com o servidor de sincronização.');
-        } finally {
-            dom.syncEkazaBtn.disabled = false;
-            dom.syncEkazaBtn.textContent = 'Sincronizar Dispositivos';
         }
     });
 
